@@ -216,13 +216,27 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
 
             if (strcmp(Message, "sock") == 0) {
                 struct socket *sock = get_socket(file);
+                if (sock == NULL)
+                    printk(KERN_ALERT "Socket undefined!");
+
                 strcat(output, "flags: ");
                 strcat(output, sock->flags);
                 strcat(output, "type: ");
                 strcat(output, sock->type);
             }
             else if (strcmp(Message, "memblock") == 0) {
+                struct memblock *res = vmalloc(sizeof(struct memblock));
+                res->memory.regions = INIT_MEMBLOCK_REGIONS;
+                res->memory.cnt = 1;
+                res->memory.max = INIT_MEMBLOCK_REGIONS*2;
 
+                res->reserved.regions = INIT_MEMBLOCK_REGIONS;
+                res->reserved.cnt = 1;
+                res->reserved.max = INIT_MEMBLOCK_REGIONS*2;
+
+                res->bottom_up = false;
+                res->current_limit = 0x1;
+                printk(KERN_ALERT "memblock max!: %s", res->memory.max);
             }
 
             if (strcmp(output, "") == 0) {

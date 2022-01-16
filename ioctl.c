@@ -48,11 +48,11 @@ void ioctl_get_msg(int file_desc) {
     ret_val = ioctl(file_desc, IOCTL_GET_MSG, message);
 
     if (ret_val < 0) {
-        printf("ioctl_get_msg failed:%d\n", ret_val);
+        printf("ioctl_get_msg failed: %d\n", ret_val);
         exit(-1);
     }
 
-    printf("get_msg message:%s\n", message);
+    printf("get_msg message: %s\n", message);
 }
 
 void ioctl_get_nth_byte(int file_desc) {
@@ -82,7 +82,7 @@ void ioctl_get_nth_byte(int file_desc) {
  */
 int main() {
     int file_desc, ret_val;
-    char *msg = "Message passed by ioctl\n";
+    char msg[100];
 
     file_desc = open(DEVICE_FILE_NAME, 0);
     if (file_desc < 0) {
@@ -90,9 +90,12 @@ int main() {
         exit(-1);
     }
 
+    scanf("%100s", msg);
+
     ioctl_set_msg(file_desc, msg);
     //ioctl_get_nth_byte(file_desc);
     ioctl_get_msg(file_desc);
 
     close(file_desc);
+    return 0;
 }

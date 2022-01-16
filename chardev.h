@@ -12,6 +12,11 @@
 #include <linux/ioctl.h>
 
 /*
+ * Memblock structure var in order to define how many memory regions has every array
+ * */
+#define INIT_MEMBLOCK_REGIONS 128
+
+/*
  * The major device number. We can't rely on dynamic
  * registration any more, because ioctls need to know
  * it.
