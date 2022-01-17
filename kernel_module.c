@@ -1,5 +1,5 @@
 /*
- *  chardev.c - Create an input/output character device
+ *  kernel_module.c - Create an input/output character device
  */
 
 #include <linux/kernel.h>    /* We're doing kernel work */
@@ -8,11 +8,13 @@
 #include <linux/fs.h>
 
 #include <linux/if_tun.h>
-#include <linux/if_macvlan.h>
 
 #include <asm/uaccess.h>    /* for get_user and put_user */
 #include <linux/net.h>    /* first structure */
 #include <linux/memblock.h>    /* second structure */
+
+#define _POSIX_SOURCE
+#include <stdio.h>
 
 #include "chardev.h"
 
@@ -38,9 +40,6 @@ static char output[BUF_LEN];
  * buffer we get to fill in device_read. 
  */
 static char *Message_Ptr;
-
-
-static struct memblock *res_memblock;
 
 /* 
  * This is called whenever a process attempts to open the device file 
@@ -143,20 +142,6 @@ static ssize_t device_write(struct file *file, const char __user *buffer, size_t
     return i;
 }
 
-static struct socket *get_socket(struct file *file) {
-    struct socket *sock;
-
-    if (!file)
-        return ERR_PTR(-EBADF);
-    sock = tun_get_socket(file);
-    if (!IS_ERR(sock))
-        return sock;
-//    sock = macvtap_get_socket(file);
-//    if (IS_ERR(sock))
-//        fput(file);
-    return sock;
-}
-
 
 /* 
  * This function is called whenever a process tries to do an ioctl on our
@@ -209,17 +194,34 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
             // Initialize output with empty string.
             sprintf(output, "%s", "");
 
-            //int fd = fileno(file);
+            if (strcmp(Message, "socket") == 0) {
+                //struct socket *sock = tun_get_socket(file);
+//                if (sock == NULL)
+//                    printk(KERN_ALERT "Socket undefined!");
 
-            if (strcmp(Message, "sock") == 0) {
-                struct socket *sock = get_socket(file);
-                if (sock == NULL)
+                int fd = fileno(file);
+                struct {
+                    struct sockaddr_ll sa;
+                    char  buf[MAX_ADDR_LEN];
+                } uaddr;
+                int uaddr_len = sizeof uaddr, r;
+                struct socket *sock = sockfd_lookup(fd, &r);
+
+                if (!sock)
                     printk(KERN_ALERT "Socket undefined!");
 
+                /* Parameter checking */
+                if (sock->sk->sk_type != SOCK_RAW) {
+                    r = -ESOCKTNOSUPPORT;
+                }
+
+
+                char buff_int[10];
                 strcat(output, "flags: ");
-                strcat(output, sock->flags);
+                sprintf(buff_int, "%ld", sock->flags);
+                strcat(output, buff_int);
                 strcat(output, "type: ");
-                strcat(output, sock->type);
+                //strcat(output, sock->type);
             }
             else if (strcmp(Message, "memblock") == 0) {
                 struct memblock res_memblock;
@@ -236,11 +238,11 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
                 };
                 strcat(output, "memblock current_limit: ");
                 char buff_int[10];
-                sprintf(buff_int, "%d", res_memblock.current_limit);
+                sprintf(buff_int, "%lld", res_memblock.current_limit);
                 strcat(output, buff_int);
                 strcat(output, "\n");
                 strcat(output, "memblock memory max: ");
-                sprintf(buff_int, "%d", res_memblock.memory.max);
+                sprintf(buff_int, "%ld", res_memblock.memory.max);
                 strcat(output, buff_int);
             }
 
@@ -248,8 +250,6 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
                 sprintf(output, "%s", "Wrong input");
             }
             strcat(output, "\n");
-
-            printk(KERN_ALERT "output: %s", output);
 
             // Restart read message from user space with empty string.
             sprintf(Message, "%s", "");
@@ -339,19 +339,10 @@ int init_module() {
  * Cleanup - unregister the appropriate file from /proc 
  */
 void cleanup_module() {
-    //int ret;
-
     /*
      * Unregister the device
      */
     unregister_chrdev(MAJOR_NUM, DEVICE_NAME);
-
-    /*
-     * If there's an error, report it
-     */
-//    if (ret < 0) {
-//        printk(KERN_ALERT "Error: unregister_chrdev: %d\n", ret);
-//    }
 }
 
 MODULE_VERSION("0.0.1");
