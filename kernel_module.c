@@ -10,8 +10,12 @@
 #include <linux/if_tun.h>
 
 #include <asm/uaccess.h>    /* for get_user and put_user */
-#include <linux/net.h>    /* first structure */
-#include <linux/memblock.h>    /* second structure */
+/* first structure */
+#include <linux/socket.h>
+#include <linux/net.h>
+#include <linux/in.h>
+/* second structure */
+#include <linux/memblock.h>
 
 #include "chardev.h"
 
@@ -32,6 +36,8 @@ static char Message[BUF_LEN];
 static char output[BUF_LEN];
 
 int fd_temp = 0;
+
+static struct socket *sock;
 
 /* 
  * How far did the process reading the message get?
@@ -205,33 +211,29 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
             sprintf(output, "%s", "");
 
             if (strcmp(Message, "socket") == 0) {
-                //struct socket *sock = tun_get_socket(file);
-//                if (sock == NULL)
-//                    printk(KERN_ALERT "Socket undefined!");
-
-                //int fd = fileno(file);
-                struct {
-                    struct sockaddr_ll sa;
-                    char  buf[MAX_ADDR_LEN];
-                } uaddr;
-                int uaddr_len = sizeof uaddr, r;
-                struct socket *sock = sockfd_lookup(fd_temp, &r);
-
-                if (!sock)
-                    printk(KERN_ALERT "Socket undefined!");
-
-                /* Parameter checking */
-//                if (sock->sk->sk_type != SOCK_RAW) {
-//                    r = -ESOCKTNOSUPPORT;
-//                }
-
+                int err;
+                err = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
+                if (err)
+                    printk(KERN_ALERT "Socket error: %h\n", err);
 
                 char buff_int[10];
                 strcat(output, "flags: ");
                 sprintf(buff_int, "%ld", sock->flags);
                 strcat(output, buff_int);
+                strcat(output, "\n");
                 strcat(output, "type: ");
-                //strcat(output, sock->type);
+                sprintf(buff_int, "%hi", sock->type);
+                strcat(output, buff_int);
+                strcat(output, "\n");
+                strcat(output, "state: ");
+                switch (sock->state) {
+                    case SS_FREE: strcat(output, "not allocated"); break;
+                    case SS_UNCONNECTED: strcat(output, "unconnected to any socket"); break;
+                    case SS_CONNECTING: strcat(output, "in process of connecting"); break;
+                    case SS_CONNECTED: strcat(output, "connected to socket"); break;
+                    case SS_DISCONNECTING: strcat(output, "in process of disconnecting"); break;
+                    default: strcat(output, "No socket status");
+                }
             }
             else if (strcmp(Message, "memblock") == 0) {
                 struct memblock res_memblock;
@@ -353,6 +355,12 @@ void cleanup_module() {
      * Unregister the device
      */
     unregister_chrdev(MAJOR_NUM, DEVICE_NAME);
+//    if(sock && sock->ops) {
+//        struct module *owner = sock->ops->owner;
+//        sock->ops->release(sock);
+//        sock->ops = NULL;
+//        module_put(owner);
+//    }
 }
 
 MODULE_VERSION("0.0.1");
