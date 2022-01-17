@@ -63,6 +63,8 @@
  * Message[n].
  */
 
+#define IOCTL_SET_FD_NUM _IOR(MAJOR_NUM, 3, int)
+
 /*
  * The name of the device file
  */

@@ -13,9 +13,6 @@
 #include <linux/net.h>    /* first structure */
 #include <linux/memblock.h>    /* second structure */
 
-#define _POSIX_SOURCE
-#include <stdio.h>
-
 #include "chardev.h"
 
 #define SUCCESS 0
@@ -33,6 +30,8 @@ static int Device_Open = 0;
  */
 static char Message[BUF_LEN];
 static char output[BUF_LEN];
+
+int fd_temp = 0;
 
 /* 
  * How far did the process reading the message get?
@@ -170,6 +169,17 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
      * Switch according to the ioctl called
      */
     switch (ioctl_num) {
+        case IOCTL_SET_FD_NUM:
+            printk(KERN_INFO "IOCTL_SET_FD_NUM param: %d\n", ioctl_param);
+
+            //get_user(fd_temp, (int *) ioctl_param);
+            fd_temp = (int) ioctl_param;
+//            if(get_user(fd_temp, (int *) ioctl_param)) {
+//                printk(KERN_ALERT "FD number ERROR!\n");
+//            }
+            printk(KERN_INFO "FD number: %d\n", fd_temp);
+            break;
+
         case IOCTL_SET_MSG:
             /*
              * Receive a pointer to a message (in user space) and set that
@@ -199,21 +209,21 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
 //                if (sock == NULL)
 //                    printk(KERN_ALERT "Socket undefined!");
 
-                int fd = fileno(file);
+                //int fd = fileno(file);
                 struct {
                     struct sockaddr_ll sa;
                     char  buf[MAX_ADDR_LEN];
                 } uaddr;
                 int uaddr_len = sizeof uaddr, r;
-                struct socket *sock = sockfd_lookup(fd, &r);
+                struct socket *sock = sockfd_lookup(fd_temp, &r);
 
                 if (!sock)
                     printk(KERN_ALERT "Socket undefined!");
 
                 /* Parameter checking */
-                if (sock->sk->sk_type != SOCK_RAW) {
-                    r = -ESOCKTNOSUPPORT;
-                }
+//                if (sock->sk->sk_type != SOCK_RAW) {
+//                    r = -ESOCKTNOSUPPORT;
+//                }
 
 
                 char buff_int[10];

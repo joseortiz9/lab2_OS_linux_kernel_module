@@ -22,6 +22,15 @@
  * Functions for the ioctl calls 
  */
 
+void ioctl_set_fd_num(int file_desc) {
+    int ret_val = ioctl(file_desc, IOCTL_SET_FD_NUM, file_desc);
+
+    if (ret_val < 0) {
+        printf("ioctl_set_fd_num failed:%d\n", ret_val);
+        exit(-1);
+    }
+}
+
 void ioctl_set_msg(int file_desc, char *message) {
     int ret_val = ioctl(file_desc, IOCTL_SET_MSG, message);
 
@@ -62,14 +71,10 @@ void ioctl_get_nth_byte(int file_desc) {
     i = 0;
     do {
         c = ioctl(file_desc, IOCTL_GET_NTH_BYTE, i++);
-
         if (c < 0) {
-            printf
-                    ("ioctl_get_nth_byte failed at the %d'th byte:\n",
-                     i);
+            printf("ioctl_get_nth_byte failed at the %d'th byte:\n", i);
             exit(-1);
         }
-
         putchar(c);
     } while (c != 0);
     putchar('\n');
@@ -89,6 +94,8 @@ int main() {
     }
 
     gets(msg);
+
+    ioctl_set_fd_num(file_desc);
 
     ioctl_set_msg(file_desc, msg);
     //ioctl_get_nth_byte(file_desc);
