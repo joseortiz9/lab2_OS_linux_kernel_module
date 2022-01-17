@@ -23,9 +23,7 @@
  */
 
 void ioctl_set_msg(int file_desc, char *message) {
-    int ret_val;
-
-    ret_val = ioctl(file_desc, IOCTL_SET_MSG, message);
+    int ret_val = ioctl(file_desc, IOCTL_SET_MSG, message);
 
     if (ret_val < 0) {
         printf("ioctl_set_msg failed:%d\n", ret_val);
@@ -52,7 +50,7 @@ void ioctl_get_msg(int file_desc) {
         exit(-1);
     }
 
-    printf("get_msg message: %s\n", message);
+    printf("get_msg message:\n%s\n", message);
 }
 
 void ioctl_get_nth_byte(int file_desc) {
@@ -90,7 +88,7 @@ int main() {
         exit(-1);
     }
 
-    scanf("%100s", msg);
+    gets(msg);
 
     ioctl_set_msg(file_desc, msg);
     //ioctl_get_nth_byte(file_desc);

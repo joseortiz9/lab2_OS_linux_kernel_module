@@ -39,13 +39,14 @@ static char output[BUF_LEN];
  */
 static char *Message_Ptr;
 
+
+static struct memblock *res_memblock;
+
 /* 
  * This is called whenever a process attempts to open the device file 
  */
 static int device_open(struct inode *inode, struct file *file) {
-    #ifdef DEBUG
-        printk(KERN_INFO "device_open(%p)\n", file);
-    #endif
+    printk(KERN_INFO "device_open(%p)\n", file);
 
     // We don't want to talk to two processes at the same time
     if (Device_Open) {
@@ -60,9 +61,7 @@ static int device_open(struct inode *inode, struct file *file) {
 }
 
 static int device_release(struct inode *inode, struct file *file) {
-    #ifdef DEBUG
-        printk(KERN_INFO "device_release(%p,%p)\n", inode, file);
-    #endif
+    printk(KERN_INFO "device_release(%p,%p)\n", inode, file);
 
     /*
      * We're now ready for our next caller
@@ -88,9 +87,7 @@ static ssize_t device_read(
      */
     int bytes_read = 0;
 
-    #ifdef DEBUG
     printk(KERN_INFO "device_read(%p,%p,%d)\n", file, buffer, length);
-    #endif
 
     /*
      * If we're at the end of the message, return 0
@@ -117,9 +114,7 @@ static ssize_t device_read(
         bytes_read++;
     }
 
-    #ifdef DEBUG
     printk(KERN_INFO "Read %d bytes, %d left\n", bytes_read, length);
-    #endif
 
     /*
      * Read functions are supposed to return the number
@@ -132,12 +127,10 @@ static ssize_t device_read(
  * This function is called when somebody tries to
  * write into our device file. 
  */
-static ssize_t device_write(struct file *file, const char __user *buffer,size_t length, loff_t *offset) {
+static ssize_t device_write(struct file *file, const char __user *buffer, size_t length, loff_t *offset) {
     int i;
 
-    #ifdef DEBUG
     printk(KERN_INFO "device_write(%p,%s,%d)", file, buffer, length);
-    #endif
 
     for (i = 0;i < length && i < BUF_LEN; i++)
         get_user(Message[i], buffer + i);
@@ -163,6 +156,7 @@ static struct socket *get_socket(struct file *file) {
 //        fput(file);
     return sock;
 }
+
 
 /* 
  * This function is called whenever a process tries to do an ioctl on our
@@ -204,10 +198,13 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
             for (i = 0; ch && i < BUF_LEN; i++, temp++) {
                 get_user(ch, temp);
             }
+
             device_write(file, (char *) ioctl_param, i, 0);
             break;
 
         case IOCTL_GET_MSG:
+
+            printk(KERN_INFO "Received msg from user_space: %s\n", Message);
 
             // Initialize output with empty string.
             sprintf(output, "%s", "");
@@ -225,24 +222,34 @@ static long device_ioctl(struct file *file, unsigned int ioctl_num, unsigned lon
                 strcat(output, sock->type);
             }
             else if (strcmp(Message, "memblock") == 0) {
-                struct memblock *res = vmalloc(sizeof(struct memblock));
-                res->memory.regions = INIT_MEMBLOCK_REGIONS;
-                res->memory.cnt = 1;
-                res->memory.max = INIT_MEMBLOCK_REGIONS*2;
-
-                res->reserved.regions = INIT_MEMBLOCK_REGIONS;
-                res->reserved.cnt = 1;
-                res->reserved.max = INIT_MEMBLOCK_REGIONS*2;
-
-                res->bottom_up = false;
-                res->current_limit = 0x1;
-                printk(KERN_ALERT "memblock max!: %s", res->memory.max);
+                struct memblock res_memblock;
+                int memblock_memory_init_regions = 128;
+                res_memblock = (struct memblock) {
+                        .bottom_up = false,
+                        .current_limit = 0x1,
+                        .memory.regions = memblock_memory_init_regions,
+                        .memory.cnt = 1,
+                        .memory.max = memblock_memory_init_regions * 2,
+                        .reserved.regions = memblock_memory_init_regions,
+                        .reserved.cnt = 1,
+                        .reserved.max = memblock_memory_init_regions * 2,
+                };
+                strcat(output, "memblock current_limit: ");
+                char buff_int[10];
+                sprintf(buff_int, "%d", res_memblock.current_limit);
+                strcat(output, buff_int);
+                strcat(output, "\n");
+                strcat(output, "memblock memory max: ");
+                sprintf(buff_int, "%d", res_memblock.memory.max);
+                strcat(output, buff_int);
             }
 
             if (strcmp(output, "") == 0) {
                 sprintf(output, "%s", "Wrong input");
             }
             strcat(output, "\n");
+
+            printk(KERN_ALERT "output: %s", output);
 
             // Restart read message from user space with empty string.
             sprintf(Message, "%s", "");
@@ -316,7 +323,7 @@ int init_module() {
         return ret_val;
     }
 
-    printk(KERN_INFO "%s The major device number is %d.\n", "Registration is a success", MAJOR_NUM);
+    printk(KERN_INFO "\n%s The major device number is %d.\n", "Registration is a success", MAJOR_NUM);
     printk(KERN_INFO "If you want to talk to the device driver,\n");
     printk(KERN_INFO "you'll have to create a device file. \n");
     printk(KERN_INFO "We suggest you use:\n");
