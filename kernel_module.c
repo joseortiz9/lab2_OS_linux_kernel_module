@@ -7,6 +7,10 @@
 #include <linux/version.h>
 #include <linux/fs.h>
 
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/netdevice.h>
+
 #include <linux/if_tun.h>
 
 #include <asm/uaccess.h>    /* for get_user and put_user */
@@ -28,6 +32,9 @@
  * concurent access into the same device 
  */
 static int Device_Open = 0;
+
+dev_t dev = 0;
+
 
 /* 
  * The message the device will give when asked 
@@ -322,6 +329,15 @@ struct file_operations Fops = {
  */
 int init_module() {
     int ret_val;
+
+
+    /*Allocating Major number*/
+    if((alloc_chrdev_region(&dev, 0, 1, DEVICE_FILE_NAME)) < 0) {
+        printk(KERN_ALERT "Can't allocate major number\n");
+        return -1;
+    }
+    printk(KERN_INFO "\nGenerated Major = %d Minor = %d \n", MAJOR(dev), MINOR(dev));
+
     /*
      * Register the character device (atleast try)
      */
@@ -335,7 +351,7 @@ int init_module() {
         return ret_val;
     }
 
-    printk(KERN_INFO "\n%s The major device number is %d.\n", "Registration is a success", MAJOR_NUM);
+    printk(KERN_INFO "%s The major device number is %d.\n", "Registration is a success", MAJOR_NUM);
     printk(KERN_INFO "If you want to talk to the device driver,\n");
     printk(KERN_INFO "you'll have to create a device file. \n");
     printk(KERN_INFO "We suggest you use:\n");
